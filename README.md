@@ -53,9 +53,37 @@ If you are able to compile your code successfully you should see something like 
 # Solution
 ## Understanding
 Describe what you understood about the problem.
+_Input: _UBX-format GPS frames (raw hex lines in a text file) for start & goal.
+
+_Objective:_
+
+1. Decode UBX NAV-POSLLH payload to obtain latitude, longitude, height.
+
+2. Use those GPS coordinates as start and goal for a grid-based path planner.
+
+3. Convert planned path into odometry commands (angles & durations) for your rover wheels.
+
+4. Compile & validate with provided make build / make check.
 
 ## Thought Process
 After understanding the problem, describe how you decided to proceed towards solving the question.
+
+TASK 1:
+
+* Verify UBX packet layout and byte offsets for NAV-POSLLH payload.
+
+* Fix any wrong offset indices or checks in the code.
+
+* Add robust parsing of the hex input lines and ensure payload pointer arithmetic is correct.
+
+For Task 2: c
+* Choose a standard grid search for efficiency and optimality.
+
+For Task 3: 
+* convert consecutive grid cells into headings (0, 90, 180, 270 or continuous), compute distance (from cell size), compute required wheel rotation/time using wheel radius/gear ratios (provided in repo).
+
+For Task 4: 
+* compile, run unit tests (provided make check), iterate on bugs.
 
 ## Implementation
 How did you decide to implement your solution.

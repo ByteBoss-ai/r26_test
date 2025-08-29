@@ -1,49 +1,76 @@
-#include "gridmap.h"
-#include <iostream>
+#include "planning.h"
+#include <queue>
+#include <map>
+#include <algorithm>
+#include <cmath>
 
 using namespace std;
 
-Gridmapper::Gridmapper(GPS origin, double cellsize, int rows, int cols)
-    : origin(origin), cellsize(cellsize), rows(rows), cols(cols),
-      grid(rows, std::vector<bool>(cols, false)) {
-  makemap();
-  printgrid();
-}
+struct Node {
+    int x, y;
+    double g, h;
+    Node* parent;
+    double f() const { return g + h; }
+};
 
-pair<int, int> Gridmapper::gpstogrid(const GPS &point) const {
-  double lat_m = (point.lat - origin.lat) * 111320.0;
-  double lon_m =
-      (point.lon - origin.lon) * (111320.0 * cos(deg2rad(origin.lat)));
-
-  int row = static_cast<int>(std::floor(lat_m / cellsize));
-  int col = static_cast<int>(std::floor(lon_m / cellsize));
-
-  return {row, col};
-}
-
-const vector<vector<bool>> &Gridmapper::getGrid() const { return grid; }
-
-double Gridmapper::deg2rad(double deg) { return deg * M_PI / 180.0; }
-
-bool Gridmapper::isvalid(int row, int col) const {
-  return (row >= 0 && row < rows && col >= 0 && col < cols);
-}
-
-void Gridmapper::makemap() {
-  for (int r = 3; r < 8; r++) {
-    this->grid[r][2] = true; // vertical wall
-  }
-  for (int c = 4; c < 9; c++) {
-    this->grid[6][c] = true; // horizontal wall
-  }
-}
-
-void Gridmapper::printgrid() const {
-  cout << "The grid map is: " << endl;
-  for (int i = 0; i < rows; i++) {
-    for (int j = 0; j < cols; j++) {
-      cout << grid[i][j] << " ";
+struct Compare {
+    bool operator()(Node* a, Node* b) {
+        return a->f() > b->f();
     }
-    cout << endl;
-  }
+};
+
+vector<pair<int,int>> Planner::pathplanning(pair<int,int> start, pair<int,int> goal) {
+    vector<pair<int,int>> path;
+
+    // Open list (priority queue for A*)
+    priority_queue<Node*, vector<Node*>, Compare> open;
+    map<pair<int,int>, double> gscore;
+    map<pair<int,int>, Node*> visited;
+
+    Node* startNode = new Node{start.first, start.second, 0.0,
+                               heuristic(start.first, start.second, goal.first, goal.second),
+                               nullptr};
+
+    open.push(startNode);
+    gscore[start] = 0.0;
+
+    // Directions (4-connected grid)
+    vector<pair<int,int>> dirs = {{1,0},{-1,0},{0,1},{0,-1}};
+
+    while (!open.empty()) {
+        Node* current = open.top();
+        open.pop();
+
+        pair<int,int> cpos = {current->x, current->y};
+        if (cpos == goal) {
+            // reconstruct path
+            while (current) {
+                path.push_back({current->x, current->y});
+                current = current->parent;
+            }
+            reverse(path.begin(), path.end());
+            break;
+        }
+
+        for (auto d : dirs) {
+            int nx = current->x + d.first;
+            int ny = current->y + d.second;
+
+            if (!isvalid(nx, ny)) continue;
+
+            pair<int,int> npos = {nx, ny};
+            double tentative_g = gscore[cpos] + 1.0;
+
+            if (!gscore.count(npos) || tentative_g < gscore[npos]) {
+                gscore[npos] = tentative_g;
+                Node* neighbor = new Node{nx, ny, tentative_g,
+                                          heuristic(nx, ny, goal.first, goal.second),
+                                          current};
+                open.push(neighbor);
+                visited[npos] = neighbor;
+            }
+        }
+    }
+
+    return path;
 }
